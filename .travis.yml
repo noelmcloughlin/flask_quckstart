@@ -1,0 +1,82 @@
+# -*- coding: utf-8 -*-
+# vim: ft=yaml
+---
+## Machine config
+os: 'linux'
+arch: 'amd64'
+dist: 'bionic'
+version: '~> 1.0'
+
+## Language and cache config
+language: 'ruby'
+cache: 'bundler'
+
+## Services config
+services:
+  - docker
+
+## Script to run for the test stage
+script:
+  - bin/kitchen verify "${INSTANCE}"
+
+## Stages and jobs matrix
+stages:
+  - Dev
+  - name: UAT
+  - name: Staging
+  - name: Production
+    if: 'branch = master AND type != pull_request'
+jobs:
+  include:
+    ## DEV runs linters (and testing matrix, if applicable)
+
+    # Run all of the linters in a single job
+    - language: 'node_js'
+      node_js: 'lts/*'
+      env: 'Lint'
+      name: 'Lint: yamllint, rubocop, shellcheck & commitlint'
+      before_install: 'skip'
+      script:
+          # http://www.yamllint.com
+        - pip install --user yamllint>=1.17.0
+        - yamllint -s .
+          # https://github.com/rubocop-hq/rubocop
+        - gem install rubocop
+        - rubocop -d
+          # https://www.shellcheck.net
+        - shellcheck --version
+        - git ls-files -- '*.sh' '*.bash' '*.ksh'
+                        | xargs shellcheck
+          # https://commitlint.js.org
+        - npm i -D @commitlint/config-conventional
+                   @commitlint/travis-cli
+        - commitlint-travis
+
+    # Run all of the linters in a single job
+        ## Define the rest of the matrix based on Kitchen testing
+        # Make sure the instances listed below match up with
+        # the `platforms` defined in `kitchen.yml`
+    - env: INSTANCE=default-circleci-redis
+    - env: INSTANCE=default-circleci-postgres
+    - env: INSTANCE=default-circleci-golang
+
+    ## Production stage runs `semantic-release`
+    - stage: Production
+      language: 'node_js'
+      node_js: 'lts/*'
+      env: 'Release'
+      name: 'Run semantic-release inc. file updates to AUTHORS, CHANGELOG & FORMULA'
+      before_install: 'skip'
+      script:
+        # Install all dependencies required for `semantic-release`
+        - npm i -D @semantic-release/changelog@3
+                   @semantic-release/exec@3
+                   @semantic-release/git@7
+      deploy:
+        provider: 'script'
+        # Opt-in to `dpl v2` to complete the Travis build config validation (beta)
+        # * https://docs.travis-ci.com/user/build-config-validation
+        # Deprecated `skip_cleanup` can now be avoided, `cleanup: false` is by default
+        edge: true
+        # Run `semantic-release`
+        script: 'npx semantic-release@15.14'

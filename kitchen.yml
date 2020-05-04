@@ -1,0 +1,43 @@
+# -*- coding: utf-8 -*-
+# vim: ft=yaml
+---
+# For help on this file's format, see https://kitchen.ci/
+# https://github.com/test-kitchen/kitchen-docker
+driver:
+  name: docker
+  use_sudo: false
+  privileged: true
+  run_command: /lib/systemd/systemd
+  env_variables:
+    TEST_KEY: TEST_VALUE
+
+# Make sure platforms match `env.matrix` in `.travis.yml`
+platforms:
+  ## IMAGES `circleci`
+  - name: circleci-redis
+    driver:
+      image: circleci/redis
+  - name: circleci-postgres
+    driver:
+      image: circleci/postgres
+  - name: circleci-golang
+    driver:
+      image: circleci/golang
+      run_command: /usr/lib/systemd/systemd
+
+provisioner:
+  name: shell
+  script:    'test/scripts/setup.sh' # default: bootstrap.sh
+  # arguments: ['--debug']             # extra arguments to converge script
+  # command:   'hostname'              # single command instead of a script
+
+verifier:
+  # https://www.inspec.io/
+  name: inspec
+  sudo: true
+  # cli, documentation, html, progress, json, json-min, json-rspec, junit
+  reporter:
+    - cli
+
+suites:
+  - name: default
