@@ -11,6 +11,12 @@ version: '~> 1.0'
 language: 'ruby'
 cache: 'bundler'
 
+addons:
+  apt:
+    packages:
+      - docker-ce
+      - docker-compose
+
 ## Services config
 services:
   - docker
@@ -19,7 +25,7 @@ services:
 script:
   - bin/kitchen verify "${INSTANCE}"
 
-## Stages and jobs matrix
+## Build
 stages:
   - name: Dev
     if: 'branch = master AND type != pull_request'
@@ -34,9 +40,9 @@ jobs:
     - stage: Dev
       language: 'node_js'
       node_js: 'lts/*'
-      env: 'Lint'
+      env: Lint
       name: 'Lint: yamllint, rubocop, shellcheck & commitlint'
-      before_install: 'skip'
+      before_install: skip
       script:
         # http://www.yamllint.com
         - pip install --user yamllint>=1.17.0
@@ -55,20 +61,23 @@ jobs:
 
     ## TEST
     # Define the rest of the matrix based on Kitchen testing
+    # Make sure the instances listed below match up with
+    # the `platforms` defined in `kitchen.yml`
     - stage: Test
-      ## Define the rest of the matrix based on Kitchen testing
-      # Make sure the instances listed below match up with
-      # the `platforms` defined in `kitchen.yml`
-    - env: INSTANCE=default-circleci-redis
-    - env: INSTANCE=default-circleci-postgres
-    - env: INSTANCE=default-circleci-golang
+      before_install:
+        - docker pull carlad/sinatra
+        - docker run -d -p 127.0.0.1:80:4567 carlad/sinatra /bin/sh -c "cd /root/sinatra; bundle exec foreman start;"
+        - docker ps -a
+        - docker run carlad/sinatra /bin/sh -c "cd /root/sinatra; bundle exec rake test"
+    - env: INSTANCE=default-centos-7
+    - env: INSTANCE=default-ubuntu-18.04
 
     ## PROD
     # Production stage runs `semantic-release`
     - stage: Prod
       language: 'node_js'
       node_js: 'lts/*'
-      env: 'Release'
+      env: 'Prod'
       name: 'Run semantic-release inc. file updates to AUTHORS, CHANGELOG & FORMULA'
       before_install: 'skip'
       script:

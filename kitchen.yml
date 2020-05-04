@@ -10,26 +10,34 @@ driver:
   run_command: /lib/systemd/systemd
   env_variables:
     TEST_KEY: TEST_VALUE
+    LC_ALL: en_US.utf-8
+    LANG: en_US.utf-8
 
 # Make sure platforms match `env.matrix` in `.travis.yml`
 platforms:
-  ## IMAGES `circleci`
-  - name: circleci-redis
-    driver:
-      image: circleci/redis
-  - name: circleci-postgres
-    driver:
-      image: circleci/postgres
-  - name: circleci-golang
-    driver:
-      image: circleci/golang
-      run_command: /usr/lib/systemd/systemd
+  ## IMAGES
+  - name: centos-7
+    driver_config:
+      image: centos/systemd
+      run_command: /usr/sbin/init
+      privileged: true
+      privision_command:
+        - sed -i 's/UsePAM yes/UsePAM no/g' /etc/ssh/sshd_config
+        - yum install -y net-tools
+        - systemctl enable sshd.service
+  - name: ubuntu-18.04
+    driver_config:
+      run_command: /sbin/init
+      privileged: true
+      privision_command:
+        - apt-get install -y iproute2
+        - systemctl enable ssh.service
 
 provisioner:
   name: shell
-  script:    'test/scripts/setup.sh' # default: bootstrap.sh
-  # arguments: ['--debug']             # extra arguments to converge script
-  # command:   'hostname'              # single command instead of a script
+  script: 'scripts/bootstrap.sh'      # default: bootstrap.sh
+  # arguments: ['--debug']    # extra arguments to converge script
+  # command: 'hostname'     # single command instead of a script
 
 verifier:
   # https://www.inspec.io/
