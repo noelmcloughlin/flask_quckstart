@@ -21,47 +21,51 @@ script:
 
 ## Stages and jobs matrix
 stages:
-  - Dev
-  - name: UAT
-  - name: Staging
-  - name: Production
+  - name: Dev
+    if: 'branch = master AND type != pull_request'
+  - name: Test
+    if: 'branch = master AND type != pull_request'
+  - name: Prod
     if: 'branch = master AND type != pull_request'
 jobs:
   include:
-    ## DEV runs linters (and testing matrix, if applicable)
-
+    ## DEV
     # Run all of the linters in a single job
-    - language: 'node_js'
+    - stage: Dev
+      language: 'node_js'
       node_js: 'lts/*'
       env: 'Lint'
       name: 'Lint: yamllint, rubocop, shellcheck & commitlint'
       before_install: 'skip'
       script:
-          # http://www.yamllint.com
+        # http://www.yamllint.com
         - pip install --user yamllint>=1.17.0
         - yamllint -s .
-          # https://github.com/rubocop-hq/rubocop
+        # https://github.com/rubocop-hq/rubocop
         - gem install rubocop
         - rubocop -d
-          # https://www.shellcheck.net
+        # https://www.shellcheck.net
         - shellcheck --version
         - git ls-files -- '*.sh' '*.bash' '*.ksh'
                         | xargs shellcheck
-          # https://commitlint.js.org
+        # https://commitlint.js.org
         - npm i -D @commitlint/config-conventional
                    @commitlint/travis-cli
         - commitlint-travis
 
-    # Run all of the linters in a single job
-        ## Define the rest of the matrix based on Kitchen testing
-        # Make sure the instances listed below match up with
-        # the `platforms` defined in `kitchen.yml`
+    ## TEST
+    # Define the rest of the matrix based on Kitchen testing
+    - stage: Test
+      ## Define the rest of the matrix based on Kitchen testing
+      # Make sure the instances listed below match up with
+      # the `platforms` defined in `kitchen.yml`
     - env: INSTANCE=default-circleci-redis
     - env: INSTANCE=default-circleci-postgres
     - env: INSTANCE=default-circleci-golang
 
-    ## Production stage runs `semantic-release`
-    - stage: Production
+    ## PROD
+    # Production stage runs `semantic-release`
+    - stage: Prod
       language: 'node_js'
       node_js: 'lts/*'
       env: 'Release'
